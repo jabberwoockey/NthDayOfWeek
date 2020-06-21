@@ -32,6 +32,10 @@ same result:
 Get-NthDayOfWeek Fourth Saturday 1985
 gndw fo sa 1985
 gndw 4 6 1985
+.EXAMPLE
+Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next
+Returns the next closest day of week in the current or next month. 
+gndw 2 2 -next
 #>
     [CmdletBinding()]
     [Alias('gndw')]
@@ -50,7 +54,8 @@ gndw 4 6 1985
         [string]$Month = (Get-Date).Month,
         [Parameter(Position=3)]
         [ValidatePattern("^[\d]{4}$")]
-        [int]$Year = (Get-Date).Year
+        [int]$Year = (Get-Date).Year,
+        [switch]$Next
         )
 
     function Get-Day {
@@ -58,7 +63,7 @@ gndw 4 6 1985
             [int]$DayVar,
             [int]$MonthVar
         )
-        Write-Verbose "Calculating the $DayVar $DayOfWeek for $MonthVar/$Year"
+        Write-Verbose "Calculating the $Day $DayOfWeek for $MonthVar/$Year"
         [string]$DateValue = ""
         [int]$WeekCounter = 0
         [int]$DayCounter = 1
@@ -90,7 +95,7 @@ gndw 4 6 1985
     $Months = @("January","February","March","April",
     "May","June","July","August","September",
     "October","November","December")
-    
+
     Write-Verbose 'Check default behavior'
     if (-not $PSBoundParameters.ContainsKey('Day') -and
         -not $PSBoundParameters.ContainsKey('DayOfWeek') -and
@@ -198,16 +203,28 @@ gndw 4 6 1985
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
+        $DayTitle = $Day + " " + $DayOfWeek + " of " `
+            + $Months[$MonthNum - 1] + " " + $Year
+        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
+        if ($Next -eq $true -and
+                (-not $PSBoundParameters.ContainsKey('Month'))) {
+            Write-Verbose "Looking for the next $Day $DayOfWeek"
+            if ((Get-Date $DateResult) -le (Get-Date).Date) {
+                $DateResult = Get-Day -MonthVar $([int]$MonthNum + 1) `
+                    -DayVar $DayNum
+            }
+            $DayTitle = "Next " + $Day + " " + $DayOfWeek
+        }
         $obj = [PSCustomObject]@{
-            DayOfWeek = $Day + " " + $DayOfWeek + " of " `
-                + $Months[$MonthNum - 1] + " " + $Year
-            Date = Get-Day -MonthVar $MonthNum -DayVar $DayNum
+            DayOfWeek = $DayTitle
+            Date = $DateResult
         }
         Write-Verbose 'Writing output'
         Write-Output $obj
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
             ($PSBoundParameters.ContainsKey('Year'))) {
+        Write-Verbose "Calculating for year $Year"
         foreach ($iMonth in (1..12)) {
             $obj = [PSCustomObject]@{
                 DayOfWeek = $Day + " " + $DayOfWeek + " of " `

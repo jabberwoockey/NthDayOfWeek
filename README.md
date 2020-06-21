@@ -63,6 +63,13 @@ commands:
 
 - `gndw 4 6 1985`
 
+To get the next closest specific day of week in the current or next month
+starting from tomorrow, use `-Next` switch:
+
+- `Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next`
+
+- `gndw 2 2 -next`
+
 Do not forget to use Tab: `get-nth` > 'Tab' > 'Space' > 'Tab','Tab' > 'Space' >
 'Tab','Tab' > 'Space' > 'Tab','Tab','Tab'
 
