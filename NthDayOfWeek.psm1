@@ -1,9 +1,9 @@
 function Get-NthDayOfWeek {
 <#
 .SYNOPSiS
-Get-NthDayOfWeek calculates the Nth day of the week of a month.
+Get-NthDayOfWeek calculates the Nth day of the week.
 .DESCRIPTION
-Get-NthDayOfWeek calculates the Nth day of the week of a month.
+Get-NthDayOfWeek calculates the Nth day of the week.
 By default without arguments the function returns second tuesdays (Patch
 Tuesdays) of the current year. It allows to calculate a specific day of the
 week for any month you like or a list of days of the week for any year.
@@ -16,24 +16,25 @@ Get-NthDayOfWeek -Day Fourth -DayOfWeek Saturday -Month October
 Returns the fourth Saturday of October. The following commands return the
 same result:
 Get-NthDayOfWeek Fourth Saturday October
-Get-NthDayOfWeek fo sa o
-Get-NthDayOfWeek 4 6 10
+gndw fo sa o
+gndw 4 6 10
 .EXAMPLE
 Get-NthDayOfWeek -Day Fourth -DayOfWeek Saturday -Month October -Year 1985
 Returns the fourth Saturday of October 1985. The following commands return the
 same result:
 Get-NthDayOfWeek Fourth Saturday October 1985
-Get-NthDayOfWeek fo sa o 1985
-Get-NthDayOfWeek 4 6 10 1985
+gndw fo sa o 1985
+gndw 4 6 10 1985
 .EXAMPLE
 Get-NthDayOfWeek -Day Fourth -DayOfWeek Saturday -Year 1985
 Returns a list of fourth Saturdays in 1985. The following commands return the
 same result:
 Get-NthDayOfWeek Fourth Saturday 1985
-Get-NthDayOfWeek fo sa 1985
-Get-NthDayOfWeek 4 6 1985
+gndw fo sa 1985
+gndw 4 6 1985
 #>
     [CmdletBinding()]
+    [Alias('gndw')]
     param (
         [Parameter(Position=0)]
         [ArgumentCompleter({"First","Second","Third","Fourth"})]
@@ -51,12 +52,39 @@ Get-NthDayOfWeek 4 6 1985
         [ValidatePattern("^[\d]{4}$")]
         [int]$Year = (Get-Date).Year
         )
-        
-        # Initial variables
+
+    function Get-Day {
+        param (
+            [int]$DayVar,
+            [int]$MonthVar
+        )
+        Write-Verbose "Calculating the $DayVar $DayOfWeek for $MonthVar/$Year"
+        [string]$DateValue = ""
         [int]$WeekCounter = 0
+        [int]$DayCounter = 1
+        $LastDay = (Get-Date -Day 1 -Month $MonthVar).AddMonths(1).AddDays(-1).Day
+        while ($WeekCounter -lt $DayVar -and $DayCounter -le $LastDay) {
+            if ((Get-Date -Day $DayCounter -Month $MonthVar `
+                          -Year $Year).DayOfWeek -eq $DayOfWeek) {
+                $WeekCounter += 1
+            }
+            elseif ($DayCounter -eq $LastDay) {
+                $DateValue = "No such a day"
+            }
+            $DayCounter += 1
+        }
+        if ($DateValue -eq "") {
+            $DateValue = (Get-Date -Day ($DayCounter - 1) -Month $MonthVar `
+                -Year $Year).ToShortDateString()
+        }
+        return $DateValue
+        Write-Verbose "Calculated date is $DateValue"
+    }
+
+    [int]$WeekCounter = 0
     [int]$DayCounter = 1
     [string]$MonthNum = (Get-Date).month
-    $Days = @("First","Second","Third","Fourth")
+    $Days = @("First","Second","Third","Fourth","Fifth")
     $DaysOfWeek = @("Monday","Tuesday","Wednesday","Thursday",
     "Friday","Saturday","Sunday")
     $Months = @("January","February","March","April",
@@ -76,14 +104,16 @@ Get-NthDayOfWeek 4 6 1985
 
     Write-Verbose "Check the day"
     switch -Regex ($Day) {
-        "^(fi(r|rs|rst)?|1(st)?)$" {
+        "^(fir(s|st)?|1(st)?)$" {
             $DayNum = 1; $Day = $Days[0]}
         "^(s(e|ec|eco|econ|econd)?|2(nd)?)$" {
             $DayNum = 2; $Day = $Days[1]}
         "^(t(h|hi|hir|hird)?|3(rd)?)$" {
             $DayNum = 3; $Day = $Days[2]}
-        "^(fo(u|ur|urt|urth)?|4(th)?)$"      {
+        "^(fo(u|ur|urt|urth)?|4(th)?)$" {
             $DayNum = 4; $Day = $Days[3]}
+        "^(fif(t|th)?|5(th)?)$" {
+            $DayNum = 5; $Day = $Days[4]}
         "^[0-9]{4}$" {
             $DayNum = 2
             $PSBoundParameters.Add('Year', '')
@@ -159,54 +189,33 @@ Get-NthDayOfWeek 4 6 1985
             Write-Verbose 'The month arg was substituted by the year arg'}
         Default {
             Write-Error -ErrorAction Stop `
-                -Message 'Wrong or ambiguous value for the month.'}
+                -Message 'Wrong or ambiguous value for month or year.'}
     }
 
+    Write-Verbose 'Start calculation'
     if ($PSBoundParameters.ContainsKey('Month') -or
             ($PSBoundParameters.ContainsKey('Day') -and
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
-        Write-Verbose "Calculating the day of the week for $Month $Year"
-        while ($WeekCounter -lt $DayNum) {
-            if ((Get-Date -Day $DayCounter -Month $MonthNum `
-                          -Year $Year).DayOfWeek -eq $DayOfWeek) {
-                $WeekCounter += 1
-            }
-            $DayCounter += 1
-        }
-
-        Write-Verbose 'Writing output'
         $obj = [PSCustomObject]@{
             DayOfWeek = $Day + " " + $DayOfWeek + " of " `
                 + $Months[$MonthNum - 1] + " " + $Year
-            Date  = (Get-Date -Day ($DayCounter - 1) -Month $MonthNum `
-                -Year $Year).ToShortDateString()
+            Date = Get-Day -MonthVar $MonthNum -DayVar $DayNum
         }
+        Write-Verbose 'Writing output'
         Write-Output $obj
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
             ($PSBoundParameters.ContainsKey('Year'))) {
-        foreach ($i in (1..12)) {
-            Write-Verbose "Calculating the day of the week for $i month $Year"
-            while ($WeekCounter -lt $DayNum) {
-                if ((Get-Date -Day $DayCounter -Month $i `
-                        -Year $Year).DayOfWeek -eq $DayOfWeek) {
-                    $WeekCounter += 1
-                }
-                $DayCounter += 1
-            }
-
-            Write-Verbose 'Writing output'
+        foreach ($iMonth in (1..12)) {
             $obj = [PSCustomObject]@{
                 DayOfWeek = $Day + " " + $DayOfWeek + " of " `
-                    + $Months[$i - 1] + " " + $Year
-                Date  = (Get-Date -Day ($DayCounter - 1) -Month $i `
-                    -Year $Year).ToShortDateString()
+                    + $Months[$iMonth - 1] + " " + $Year
+                Date = Get-Day -MonthVar $iMonth -DayVar $DayNum
             }
+            Write-Verbose 'Writing output'
             Write-Output $obj
-            $WeekCounter = 0
-            $DayCounter = 1
         }
     }
 }
