@@ -63,6 +63,15 @@ commands:
 
 - `gndw 4 6 1985`
 
+To get the last specific day of week (the argument for -Day should be `Last`
+or a negative number `-1`):
+
+- `Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961`
+
+- `Get-NthDayOfWeek Last Tuesday March`
+
+- `gndw -1 2 3`
+
 To get the next closest specific day of week in the current or next month
 starting from tomorrow, use `-Next` switch:
 
