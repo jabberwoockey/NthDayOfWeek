@@ -5,8 +5,9 @@ Get-NthDayOfWeek calculates the Nth day of the week.
 .DESCRIPTION
 Get-NthDayOfWeek calculates the Nth day of the week.
 By default without arguments the function returns second tuesdays (Patch
-Tuesdays) of the current year. It allows to calculate a specific day of the
-week for any month you like or a list of days of the week for any year.
+Tuesdays) for the current year (or the next year with the switch '-Next').
+It allows to calculate a specific day of the week for any month you like or
+a list of days of the week for any year.
 .EXAMPLE
 Get-NthDayOfWeek
 Returns second tuesdays of the current year. 'Get-NthDayOfWeek 2021' or
@@ -40,13 +41,16 @@ gndw 2 2 -next
 Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961
 Returns the last day of week for a month or a year.
 Get-NthDayOfWeek Last Tuesday March
-gndw -1 2 3
+gndw -2 2 3 2025
 #>
     [CmdletBinding()]
     [Alias('gndw')]
     param (
         [Parameter(Position=0)]
-        [ArgumentCompleter({'First','Second','Third','Fourth','Fifth','Last'})]
+        [ArgumentCompleter({'First','Second','Third','Fourth',
+                            'Fifth','Last','Penultimate',
+                            'Antepenultimate','Preantepenultimate',
+                            'Propreantepenultimate'})]
         [string]$Day = 'Second',
         [Parameter(Position=1)]
         [ArgumentCompleter({'Monday','Tuesday','Wednesday','Thursday',
@@ -113,12 +117,14 @@ gndw -1 2 3
         Write-Verbose "Calculated date is $DateValue"
     } # end of Get-Day function
 
-    $Days = @('First','Second','Third','Fourth','Fifth','Last')
+    $Days = @('First','Second','Third','Fourth',
+            'Fifth','Last','Second to last','Third to last',
+            'Fourth to last','Fifth to last')
     $DaysOfWeek = @('Monday','Tuesday','Wednesday','Thursday',
-    'Friday','Saturday','Sunday')
+            'Friday','Saturday','Sunday')
     $Months = @('January','February','March','April',
-    'May','June','July','August','September',
-    'October','November','December')
+            'May','June','July','August','September',
+            'October','November','December')
     $Props = @('DayOfWeek','Date')
 
     Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
@@ -127,11 +133,15 @@ gndw -1 2 3
             -not $PSBoundParameters.ContainsKey('DayOfWeek') -and
             -not $PSBoundParameters.ContainsKey('Month') -and
             -not $PSBoundParameters.ContainsKey('Year')) {
-        $PSBoundParameters.Add('Day', 'Second')
-        $PSBoundParameters.Add('DayOfWeek', 'Tuesday')
-        $PSBoundParameters.Add('Year', (Get-Date).Year)
+        $PSBoundParameters.Add('Day', $Day)
+        $PSBoundParameters.Add('DayOfWeek', $DayOfWeek)
+        $PSBoundParameters.Add('Year', $Year)
+        if ($PSBoundParameters.ContainsKey('Next')) {
+            $Year = ((Get-Date).Year + 1)
+        }
         Write-Verbose 'The list for the current year was chosen'
         Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
+        Write-Debug "Day: $Day; DayOfWeek: $DayOfWeek; Year: $Year"
     }
 
     Write-Verbose 'Check the day'
@@ -147,8 +157,15 @@ gndw -1 2 3
         '^(fif(t|th)?|5(th)?)$' {
             $DayNum = 5; $Day = $Days[4]}
         '^(l(a|as|ast)?|-1)$' {
-            $DayNum = -1; $Day = $Days[5]
-        }
+            $DayNum = -1; $Day = $Days[5]}
+        '^(pe(n|nu|nul|nult(.{1,5})?)?|-2)$' {
+            $DayNum = -2; $Day = $Days[6]}
+        '^(a(n|nt|nte|ntep|ntepe|ntepen(.{1,8})?)?|-3)$' {
+            $DayNum = -3; $Day = $Days[7]}
+        '^(pre(a|an|ant|ante|antep(.{1,10})?)?|-4)$' {
+            $DayNum = -4; $Day = $Days[8]}
+        '^(pro(p|pr|pre|prea|prean|preant(.{1,12}))?|-5)$' {
+            $DayNum = -5; $Day = $Days[9]}
         '^[0-9]{4}$' {
             $DayNum = 2
             $PSBoundParameters.Add('Year', '')
@@ -233,23 +250,34 @@ gndw -1 2 3
     Write-Debug "MonthNum: $MonthNum; Month: $Month"
 
     Write-Verbose 'Start calculation'
-    if ($PSBoundParameters.ContainsKey('Month') -or
+    if ($Next -eq $true -and
+            $PSBoundParameters.ContainsKey('Day') -and
+            $PSBoundParameters.ContainsKey('DayOfWeek') -and
+            (-not $PSBoundParameters.ContainsKey('Month')) -and
+            (-not $PSBoundParameters.ContainsKey('Year'))) {
+        Write-Verbose "Looking for the next $Day $DayOfWeek"
+        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
+        if ((Get-Date $DateResult) -le (Get-Date).Date) {
+            $DateResult = Get-Day -MonthVar $([int]$MonthNum + 1) `
+                -DayVar $DayNum
+        }
+        $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
+        Write-Verbose 'Creating object'
+        $obj = [PSCustomObject]@{
+            $Props[0] = $DayTitle
+            $Props[1] = $DateResult
+        }
+        Write-Verbose 'Writing output'
+        Write-Output $obj
+    }
+    elseif ($PSBoundParameters.ContainsKey('Month') -or
             ($PSBoundParameters.ContainsKey('Day') -and
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
+        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
             + $Months[$MonthNum - 1] + ' ' + $Year
-        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
-        if ($Next -eq $true -and
-                (-not $PSBoundParameters.ContainsKey('Month'))) {
-            Write-Verbose "Looking for the next $Day $DayOfWeek"
-            if ((Get-Date $DateResult) -le (Get-Date).Date) {
-                $DateResult = Get-Day -MonthVar $([int]$MonthNum + 1) `
-                    -DayVar $DayNum
-            }
-            $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
-        }
         Write-Verbose 'Creating object'
         $obj = [PSCustomObject]@{
             $Props[0] = $DayTitle
@@ -263,10 +291,12 @@ gndw -1 2 3
         Write-Verbose "Calculating for year $Year"
         foreach ($iMonth in (1..12)) {
             Write-Verbose 'Creating object'
+            $DateResult = Get-Day -MonthVar $iMonth -DayVar $DayNum
+            $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
+                + $Months[$iMonth - 1] + ' ' + $Year
             $obj = [PSCustomObject]@{
-                $Props[0] = $Day + ' ' + $DayOfWeek + ' of ' `
-                    + $Months[$iMonth - 1] + ' ' + $Year
-                $Props[1] = Get-Day -MonthVar $iMonth -DayVar $DayNum
+                $Props[0] = $DayTitle
+                $Props[1] = $DateResult
             }
             Write-Verbose 'Writing output'
             Write-Output $obj

@@ -8,18 +8,25 @@ By default, without parameters, the function returns second tuesdays
 (first, second, third, fourth, or even fifth) for any month you like,
 or a list of days of the week for any year.
 
-To install clone or download repository and import the module.
+To install clone or download repository, copy the directory into your user
+module folder, and then import the module.
+
+- `xcopy .\NthDayOfWeek $home\Documents\WindowsPowerShell\Modules\NthDayOfWeek /i /h /s /q`
 
 - `Import-Module NthDayOfWeek`
 
 ---
 
-### Usage
+### How to use
 
 To get second tuesdays (Patch Tuesdays) of the current year run the function
 without parameters:
 
 - `Get-NthDayOfWeek`
+
+Or with the switch `-Next` for the tuesdays of the next year:
+
+- `gndw -Next` 
 
 To get second tuesdays (Patch Tuesdays) of a specific month of the current year
 or a specific year run the following commands:
@@ -63,14 +70,14 @@ commands:
 
 - `gndw 4 6 1985`
 
-To get the last specific day of week (the argument for -Day should be `Last`
-or a negative number `-1`):
+To get the last (penultimate and so on) specific day of week use the `Last`
+argument for -Day or a negative number `-1`, `-2`, etc:
 
 - `Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961`
 
-- `Get-NthDayOfWeek Last Tuesday March`
+- `Get-NthDayOfWeek Penultimate Tuesday March`
 
-- `gndw -1 2 3`
+- `gndw -3 3 3`
 
 To get the next closest specific day of week in the current or next month
 starting from tomorrow, use `-Next` switch:
@@ -79,7 +86,7 @@ starting from tomorrow, use `-Next` switch:
 
 - `gndw 2 2 -next`
 
-Do not forget to use Tab: `get-nth` > 'Tab' > 'Space' > 'Tab','Tab' > 'Space' >
-'Tab','Tab' > 'Space' > 'Tab','Tab','Tab'
+Do not forget to use Tab to autocomplete arguments: `get-nth` > 'Tab' >
+'Space' > 'Tab','Tab' > 'Space' > 'Tab','Tab' > 'Space' > 'Tab','Tab','Tab'
 
 ---
