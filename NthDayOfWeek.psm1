@@ -117,6 +117,20 @@ gndw -2 2 3 2025
         Write-Verbose "Calculated date is $DateValue"
     } # end of Get-Day function
 
+    function Write-OutputObject {
+        param (
+            [string]$NameField,
+            [string]$DateField
+        )
+        Write-Verbose 'Creating output object'
+        $obj = [PSCustomObject]@{
+            $Props[0] = $NameField
+            $Props[1] = $DateField
+        }
+        Write-Verbose 'Writing output'
+        Write-Output $obj
+    } # end of Write-OutputObject function
+
     $Days = @('First','Second','Third','Fourth',
             'Fifth','Last','Second to last','Third to last',
             'Fourth to last','Fifth to last')
@@ -223,7 +237,7 @@ gndw -2 2 3 2025
         '^(may|5)$' {
             $MonthNum = 5; $Month = $Months[4]}
         '^(jun(e)?|6)$' {
-            $MonthNum = 6; $Month = $Months[5]}
+            [int]$MonthNum = 6; $Month = $Months[5]}
         '^(jul(y)?|7)$' {
             $MonthNum = 7; $Month = $Months[6]}
         '^(au(g|gu|gus|gust)?|8)$' {
@@ -256,19 +270,23 @@ gndw -2 2 3 2025
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year'))) {
         Write-Verbose "Looking for the next $Day $DayOfWeek"
+        # TODO: see below
+        if ($DayNum -eq -5) {
+            Write-Error -ErrorAction Stop `
+                -Message "Support for Day = -5 and Next isn't implemented yet."
+        }
         $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
         if ((Get-Date $DateResult) -le (Get-Date).Date) {
-            $DateResult = Get-Day -MonthVar $([int]$MonthNum + 1) `
+            if ($MonthNum -eq 12) {
+                Write-Verbose 'Last month, incrementing the year'
+                $Year += 1
+                $MonthNum = 0
+            }
+            $DateResult = Get-Day -MonthVar $($MonthNum + 1) `
                 -DayVar $DayNum
         }
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
-        Write-Verbose 'Creating object'
-        $obj = [PSCustomObject]@{
-            $Props[0] = $DayTitle
-            $Props[1] = $DateResult
-        }
-        Write-Verbose 'Writing output'
-        Write-Output $obj
+        Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ($PSBoundParameters.ContainsKey('Month') -or
             ($PSBoundParameters.ContainsKey('Day') -and
@@ -278,13 +296,7 @@ gndw -2 2 3 2025
         $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
             + $Months[$MonthNum - 1] + ' ' + $Year
-        Write-Verbose 'Creating object'
-        $obj = [PSCustomObject]@{
-            $Props[0] = $DayTitle
-            $Props[1] = $DateResult
-        }
-        Write-Verbose 'Writing output'
-        Write-Output $obj
+        Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
             ($PSBoundParameters.ContainsKey('Year'))) {
@@ -294,12 +306,7 @@ gndw -2 2 3 2025
             $DateResult = Get-Day -MonthVar $iMonth -DayVar $DayNum
             $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
                 + $Months[$iMonth - 1] + ' ' + $Year
-            $obj = [PSCustomObject]@{
-                $Props[0] = $DayTitle
-                $Props[1] = $DateResult
-            }
-            Write-Verbose 'Writing output'
-            Write-Output $obj
+            Write-OutputObject -NameField $DayTitle -DateField $DateResult
         }
     }
 }
