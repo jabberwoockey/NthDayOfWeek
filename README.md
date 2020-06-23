@@ -9,15 +9,18 @@ By default, without parameters, the function returns second tuesdays
 or a list of days of the week for any year.
 
 To install clone or download repository, copy the directory into your user
-module folder, and then import the module.
-
-- `xcopy .\NthDayOfWeek $home\Documents\WindowsPowerShell\Modules\NthDayOfWeek /i /h /s /q`
+module folder (`$HOME\Documents\WindowsPowerShell\Modules\`), and then import
+the module.
 
 - `Import-Module NthDayOfWeek`
 
 ---
 
 ### How to use
+
+Run the following command in the shell to get help:
+
+- `help gndw -s`
 
 To get second tuesdays (Patch Tuesdays) of the current year run the function
 without parameters:
@@ -29,7 +32,7 @@ Or with the switch `-Next` for the tuesdays of the next year:
 - `gndw -Next` 
 
 To get second tuesdays (Patch Tuesdays) of a specific month of the current year
-or a specific year run the following commands:
+or a specific year run any one of the following commands:
 
 - `Get-NthDayOfWeek -Month February`
 
@@ -85,6 +88,8 @@ starting from tomorrow, use `-Next` switch:
 - `Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next`
 
 - `gndw 2 2 -next`
+
+To get all properties of the output object run `Get-NthDayOfWeek | Format-List *`
 
 Do not forget to use Tab to autocomplete arguments: `get-nth` > 'Tab' >
 'Space' > 'Tab','Tab' > 'Space' > 'Tab','Tab' > 'Space' > 'Tab','Tab','Tab'

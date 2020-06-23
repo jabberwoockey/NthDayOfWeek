@@ -8,6 +8,26 @@ By default without arguments the function returns second tuesdays (Patch
 Tuesdays) for the current year (or the next year with the switch '-Next').
 It allows to calculate a specific day of the week for any month you like or
 a list of days of the week for any year.
+.PARAMETER Day
+Specifies an ordinal number of the day. Possible values: words and their
+shortened forms - first, second, sec, s, 1st, 3rd, last, penultimate and so on;
+numbers - 1..5 or -1..-5 for last, second to last, etc.
+.PARAMETER DayOfWeek
+Specifies a day of the week. Possible values: words and their shortened forms -
+monday, tue, su and so on; numbers - 1, 2, 3, 4, 5, 6, 7(0).
+.PARAMETER Month
+Specifies a month. Possible values: words and their shortened forms - January,
+feb, s, n and so on; numbers - 1..12.
+.PARAMETER Year
+Specifies a year. Possible values: a four digit number.
+.PARAMETER Next
+A switch that specifies whether to show the next date or not. It works with a
+Day/DayOfWeek pair or with a Year.
+.INPUTS
+Not implemented yet.
+.OUTPUTS
+[System.Management.Automation.PSCustomObject]
+.NOTES
 .EXAMPLE
 Get-NthDayOfWeek
 Returns second tuesdays of the current year. 'Get-NthDayOfWeek 2021' or
@@ -42,6 +62,10 @@ Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961
 Returns the last day of week for a month or a year.
 Get-NthDayOfWeek Last Tuesday March
 gndw -2 2 3 2025
+.LINK
+https://github.com/jabberwoockey/NthDayOfWeek
+.LINK
+Get-Date
 #>
     [CmdletBinding()]
     [Alias('gndw')]
@@ -80,7 +104,8 @@ gndw -2 2 3 2025
         if ($DayVar -lt 0) {
             [int]$DayCounter = $LastDay
             Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
-            while ($WeekCounter -lt [Math]::abs($DayVar) -and $DayCounter -ge 1) {
+            while ($WeekCounter -lt [Math]::abs($DayVar) -and
+                    $DayCounter -ge 1) {
                 if ((Get-Date -Day $DayCounter -Month $MonthVar `
                               -Year $Year).DayOfWeek -eq $DayOfWeek) {
                     $WeekCounter += 1
@@ -113,7 +138,7 @@ gndw -2 2 3 2025
             $DateValue = (Get-Date -Day ($DayCounter) -Month $MonthVar `
                 -Year $Year).ToShortDateString()
         }
-        return $DateValue
+        return $DateValue, $LastDay
         Write-Verbose "Calculated date is $DateValue"
     } # end of Get-Day function
 
@@ -123,9 +148,31 @@ gndw -2 2 3 2025
             [string]$DateField
         )
         Write-Verbose 'Creating output object'
+        if ($DateField -match "^[0-9].+") {
+            $DaysUntilEndOfMonth = $LastDay - (Get-Date $DateField).Day
+
+        } else {
+            $DaysUntilEndOfMonth = ''
+
+        }
+        if ($DateField -match "^[0-9].+" -and
+                (Get-Date $DateField) -gt (Get-Date).Date) {
+            $DaysUntilDate = `
+                (((Get-Date $DateField).Date).Subtract($(Get-Date))).Days
+            $DaysAfterDate = ''
+        } elseif ($DateField -match "^[0-9].+" -and
+                (Get-Date $DateField) -lt (Get-Date).Date) {
+            $DaysUntilDate = ''
+            $DaysAfterDate = `
+                (((Get-Date).Date).Subtract($(Get-Date $DateField))).Days
+        }
         $obj = [PSCustomObject]@{
             $Props[0] = $NameField
             $Props[1] = $DateField
+            $Props[2] = $LastDay
+            $Props[3] = $DaysUntilEndOfMonth
+            $Props[4] = $DaysUntilDate
+            $Props[5] = $DaysAfterDate
         }
         Write-Verbose 'Writing output'
         Write-Output $obj
@@ -139,7 +186,8 @@ gndw -2 2 3 2025
     $Months = @('January','February','March','April',
             'May','June','July','August','September',
             'October','November','December')
-    $Props = @('DayOfWeek','Date')
+    $Props = @('DayOfWeek','Date','DaysInMonth','DaysUntilEndOfMonth',
+            'DaysUntilDate','DaysAfterDate')
 
     Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
     Write-Verbose 'Check default behavior'
@@ -270,20 +318,19 @@ gndw -2 2 3 2025
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year'))) {
         Write-Verbose "Looking for the next $Day $DayOfWeek"
-        # TODO: see below
-        if ($DayNum -eq -5) {
-            Write-Error -ErrorAction Stop `
-                -Message "Support for Day = -5 and Next isn't implemented yet."
-        }
-        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
-        if ((Get-Date $DateResult) -le (Get-Date).Date) {
-            if ($MonthNum -eq 12) {
-                Write-Verbose 'Last month, incrementing the year'
+        $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
+        Write-Verbose "$DateResult in $($Months[$MonthNum-1])"
+        while ($DateResult -match '^No.+$' -or
+                (Get-Date $DateResult) -le (Get-Date).Date) {
+            $MonthNum += 1
+            Write-Verbose "Looking for another one in $($Months[$MonthNum-1])"
+            if ($MonthNum -ge 13) {
+                Write-Verbose "Last month, incrementing the year: $Year"
                 $Year += 1
-                $MonthNum = 0
+                $MonthNum = 1
             }
-            $DateResult = Get-Day -MonthVar $($MonthNum + 1) `
-                -DayVar $DayNum
+            $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
+            Write-Verbose "Found: $DateResult"
         }
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
@@ -293,7 +340,7 @@ gndw -2 2 3 2025
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
-        $DateResult = Get-Day -MonthVar $MonthNum -DayVar $DayNum
+        $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
             + $Months[$MonthNum - 1] + ' ' + $Year
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
@@ -302,8 +349,7 @@ gndw -2 2 3 2025
             ($PSBoundParameters.ContainsKey('Year'))) {
         Write-Verbose "Calculating for year $Year"
         foreach ($iMonth in (1..12)) {
-            Write-Verbose 'Creating object'
-            $DateResult = Get-Day -MonthVar $iMonth -DayVar $DayNum
+            $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $iMonth
             $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
                 + $Months[$iMonth - 1] + ' ' + $Year
             Write-OutputObject -NameField $DayTitle -DateField $DateResult
