@@ -55,7 +55,7 @@ gndw fo sa 1985
 gndw 4 6 1985
 .EXAMPLE
 Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next
-Returns the next closest day of week for the current or next month. 
+Returns the next closest day of week for the current or next month.
 gndw 2 2 -next
 .EXAMPLE
 Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961
@@ -67,29 +67,34 @@ https://github.com/jabberwoockey/NthDayOfWeek
 .LINK
 Get-Date
 #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName='Base')]
     [Alias('gndw')]
     param (
-        [Parameter(Position=0)]
+        [Parameter(Position=0,ParameterSetName='Base')]
         [ArgumentCompleter({'First','Second','Third','Fourth',
                             'Fifth','Last','Penultimate',
                             'Antepenultimate','Preantepenultimate',
                             'Propreantepenultimate'})]
         [string]$Day = 'Second',
-        [Parameter(Position=1)]
+        [Parameter(Position=1,ParameterSetName='Base')]
         [ArgumentCompleter({'Monday','Tuesday','Wednesday','Thursday',
                             'Friday','Saturday','Sunday'})]
         [string]$DayOfWeek = 'Tuesday',
-        [Parameter(Position=2)]
+        [Parameter(Position=2,ParameterSetName='Base')]
         [ArgumentCompleter({'January','February','March','April',
                             'May','June','July','August','September',
                             'October','November','December'})]
         [string]$Month = (Get-Date).Month,
-        [Parameter(Position=3)]
+        [Parameter(Position=3,ParameterSetName='Base')]
+        [Parameter(ParameterSetName='Friday13th')]
         [ValidatePattern('^[\d]{4}$')]
         [int]$Year = (Get-Date).Year,
-        [switch]$Next
-        )
+        [Parameter(ParameterSetName='Base')]
+        [Parameter(ParameterSetName='Friday13th')]
+        [switch]$Next,
+        [Parameter(ParameterSetName='Friday13th')]
+        [switch]$Friday13th
+    )
 
     function Get-Day {
         param (
@@ -97,7 +102,8 @@ Get-Date
             [int]$MonthVar
         )
         Write-Verbose "Calculating the $Day $DayOfWeek for $MonthVar/$Year"
-        $LastDay = (Get-Date -Day 1 -Month $MonthVar -Year $Year).AddMonths(1).AddDays(-1).Day
+        $LastDay = (Get-Date -Day 1 -Month $MonthVar `
+            -Year $Year).AddMonths(1).AddDays(-1).Day
         [string]$DateValue = ''
         [int]$WeekCounter = 0
         Write-Debug "LastDay: $LastDay; DayVar: $DayVar; MonthVar: $MonthVar"
@@ -194,7 +200,8 @@ Get-Date
     if (-not $PSBoundParameters.ContainsKey('Day') -and
             -not $PSBoundParameters.ContainsKey('DayOfWeek') -and
             -not $PSBoundParameters.ContainsKey('Month') -and
-            -not $PSBoundParameters.ContainsKey('Year')) {
+            -not $PSBoundParameters.ContainsKey('Year') -and
+            $Friday13th -eq $false) {
         $PSBoundParameters.Add('Day', $Day)
         $PSBoundParameters.Add('DayOfWeek', $DayOfWeek)
         $PSBoundParameters.Add('Year', $Year)
@@ -334,6 +341,23 @@ Get-Date
         }
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
+    }
+    elseif ($Friday13th -eq $true) {
+        $DayTitle = 'Friday 13th'
+        if ($Next -eq $true) {
+            $Year += 1
+        }
+        foreach ($iMonth in (1..12)) {
+            Write-Verbose "Looking fo Friday 13th in $($Months[$iMonth-1])"
+            $LastDay = (Get-Date -Day 1 -Month $iMonth `
+                -Year $Year).AddMonths(1).AddDays(-1).Day
+            if ((Get-Date -Day 13 -Month $iMonth -Year $Year).DayOfWeek `
+                    -eq 'Friday') {
+                $DateResult = (Get-Date -Day 13 -Month $iMonth `
+                    -Year $Year).ToShortDateString()
+                Write-OutputObject -NameField $DayTitle -DateField $DateResult
+            }
+        }
     }
     elseif ($PSBoundParameters.ContainsKey('Month') -or
             ($PSBoundParameters.ContainsKey('Day') -and
