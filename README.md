@@ -84,12 +84,12 @@ argument for -Day or a negative number `-1`, `-2`, etc:
 
 - `gndw -3 3 3`
 
-To get the next closest specific day of week in the current or next month
-starting from tomorrow, use `-Next` switch:
+To get the next/previous closest specific day of week in the current or next
+month starting from tomorrow/yesterday, use `-Next`/`-Previous` switch:
 
 - `Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next`
 
-- `gndw 2 2 -next`
+- `gndw 2 2 -prev`
 
 To get all properties of the output object run `Get-NthDayOfWeek | Format-List *`
 

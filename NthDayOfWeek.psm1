@@ -5,9 +5,9 @@ Get-NthDayOfWeek calculates the Nth day of the week.
 .DESCRIPTION
 Get-NthDayOfWeek calculates the Nth day of the week.
 By default without arguments the function returns second tuesdays (Patch
-Tuesdays) for the current year (or the next year with the switch '-Next').
-It allows to calculate a specific day of the week for any month you like or
-a list of days of the week for any year.
+Tuesdays) for the current year (or the next or previous year with an according
+switch). It allows to calculate a specific day of the week for any month you
+like or a list of days of the week for any year.
 .PARAMETER Day
 Specifies an ordinal number of the day. Possible values: words and their
 shortened forms - first, second, sec, s, 1st, 3rd, last, penultimate and so on;
@@ -21,13 +21,24 @@ feb, s, n and so on; numbers - 1..12.
 .PARAMETER Year
 Specifies a year. Possible values: a four digit number.
 .PARAMETER Next
-A switch that specifies whether to show the next date or not. It works with a
+A switch that specifies whether to show the next date(s) or not. It works with a
 Day/DayOfWeek pair or with a Year.
+.PARAMETER Previous
+A switch that specifies whether to show the previous date(s) or not. It works
+with a Day/DayOfWeek pair or with a Year.
+.PARAMETER Friday13th
+A switch to search Friday 13th in the current, next/previous (with an
+according switch), or any other specified year.
 .INPUTS
 Not implemented yet.
 .OUTPUTS
 [System.Management.Automation.PSCustomObject]
 .NOTES
+Various examples:
+"1..7 | foreach {gndw 5 $_ 8 1999}"
+"1..12 | foreach {gndw 1 1 $_}" all first Mondays of the year
+"1..5 | foreach {gndw $_ 1 -n}" next five Mondays
+"foreach ($y in 1900..2000) {gndw 2 2 -Year $y}" all Second Tuesdays of 20th century
 .EXAMPLE
 Get-NthDayOfWeek
 Returns second tuesdays of the current year. 'Get-NthDayOfWeek 2021' or
@@ -55,8 +66,9 @@ gndw fo sa 1985
 gndw 4 6 1985
 .EXAMPLE
 Get-NthDayOfWeek -Day Second -DayOfWeek Tuesday -Next
-Returns the next closest day of week for the current or next month.
+Returns the next closest day of week for the current or next/previous month.
 gndw 2 2 -next
+gndw -2 4 -previous
 .EXAMPLE
 Get-NthDayOfWeek -Day Last -DayOfWeek Tuesday -Month March -Year 1961
 Returns the last day of week for a month or a year.
@@ -71,12 +83,16 @@ Get-Date
     [Alias('gndw')]
     param (
         [Parameter(Position=0,ParameterSetName='Base')]
+        [Parameter(Position=0,ParameterSetName='BaseNext')]
+        [Parameter(Position=0,ParameterSetName='BasePrev')]
         [ArgumentCompleter({'First','Second','Third','Fourth',
                             'Fifth','Last','Penultimate',
                             'Antepenultimate','Preantepenultimate',
                             'Propreantepenultimate'})]
         [string]$Day = 'Second',
         [Parameter(Position=1,ParameterSetName='Base')]
+        [Parameter(Position=1,ParameterSetName='BaseNext')]
+        [Parameter(Position=1,ParameterSetName='BasePrev')]
         [ArgumentCompleter({'Monday','Tuesday','Wednesday','Thursday',
                             'Friday','Saturday','Sunday'})]
         [string]$DayOfWeek = 'Tuesday',
@@ -86,13 +102,20 @@ Get-Date
                             'October','November','December'})]
         [string]$Month = (Get-Date).Month,
         [Parameter(Position=3,ParameterSetName='Base')]
-        [Parameter(ParameterSetName='Friday13th')]
-        [ValidatePattern('^[\d]{4}$')]
+        [Parameter(Position=1,ParameterSetName='Friday13th')]
+        [ValidatePattern('^[0-9]{4}$')]
         [int]$Year = (Get-Date).Year,
         [Parameter(ParameterSetName='Base')]
-        [Parameter(ParameterSetName='Friday13th')]
+        [Parameter(Mandatory=$true,ParameterSetName='BaseNext')]
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13thNext')]
         [switch]$Next,
-        [Parameter(ParameterSetName='Friday13th')]
+        [Parameter(ParameterSetName='Base')]
+        [Parameter(Mandatory=$true,ParameterSetName='BasePrev')]
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13thPrev')]
+        [switch]$Previous,
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13th')]
+        [Parameter(ParameterSetName='Friday13thNext')]
+        [Parameter(ParameterSetName='Friday13thPrev')]
         [switch]$Friday13th
     )
 
@@ -108,37 +131,35 @@ Get-Date
         [int]$WeekCounter = 0
         Write-Debug "LastDay: $LastDay; DayVar: $DayVar; MonthVar: $MonthVar"
         if ($DayVar -lt 0) {
-            [int]$DayCounter = $LastDay
+            [int]$DayCounter = $LastDay + 1
             Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
             while ($WeekCounter -lt [Math]::abs($DayVar) -and
                     $DayCounter -ge 1) {
-                if ((Get-Date -Day $DayCounter -Month $MonthVar `
+                $DayCounter -= 1
+                if ($DayCounter -lt 1) {
+                    $DateValue = 'No such a day'
+                }
+                elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
                               -Year $Year).DayOfWeek -eq $DayOfWeek) {
                     $WeekCounter += 1
                 }
-                elseif ($DayCounter -eq 1) {
-                    $DateValue = 'No such a day'
-                }
-                $DayCounter -= 1
                 Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
             }
-            $DayCounter += 1
         }
         else {
-            [int]$DayCounter = 1
+            [int]$DayCounter = 0
             Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
             while ($WeekCounter -lt $DayVar -and $DayCounter -le $LastDay) {
-                if ((Get-Date -Day $DayCounter -Month $MonthVar `
+                $DayCounter += 1
+                if ($DayCounter -gt $LastDay) {
+                    $DateValue = 'No such a day'
+                }
+                elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
                               -Year $Year).DayOfWeek -eq $DayOfWeek) {
                     $WeekCounter += 1
                 }
-                elseif ($DayCounter -eq $LastDay) {
-                    $DateValue = 'No such a day'
-                }
-                $DayCounter += 1
                 Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
             }
-            $DayCounter -= 1
         }
         if ($DateValue -eq '') {
             $DateValue = (Get-Date -Day ($DayCounter) -Month $MonthVar `
@@ -207,6 +228,9 @@ Get-Date
         $PSBoundParameters.Add('Year', $Year)
         if ($PSBoundParameters.ContainsKey('Next')) {
             $Year = ((Get-Date).Year + 1)
+        }
+        if ($PSBoundParameters.ContainsKey('Previous')) {
+            $Year = ((Get-Date).Year - 1)
         }
         Write-Verbose 'The list for the current year was chosen'
         Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
@@ -292,7 +316,7 @@ Get-Date
         '^(may|5)$' {
             $MonthNum = 5; $Month = $Months[4]}
         '^(jun(e)?|6)$' {
-            [int]$MonthNum = 6; $Month = $Months[5]}
+            $MonthNum = 6; $Month = $Months[5]}
         '^(jul(y)?|7)$' {
             $MonthNum = 7; $Month = $Months[6]}
         '^(au(g|gu|gus|gust)?|8)$' {
@@ -342,10 +366,35 @@ Get-Date
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
-    elseif ($Friday13th -eq $true) {
+    elseif ($Previous -eq $true -and
+            $PSBoundParameters.ContainsKey('Day') -and
+            $PSBoundParameters.ContainsKey('DayOfWeek') -and
+            (-not $PSBoundParameters.ContainsKey('Month')) -and
+            (-not $PSBoundParameters.ContainsKey('Year'))) {
+        Write-Verbose "Looking for the previous $Day $DayOfWeek"
+        $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
+        Write-Verbose "$DateResult in $($Months[$MonthNum-1])"
+        while ($DateResult -match '^No.+$' -or
+                (Get-Date $DateResult) -ge (Get-Date).Date) {
+            $MonthNum -= 1
+            Write-Verbose "Looking for another one in $($Months[$MonthNum-1])"
+            if ($MonthNum -le 0) {
+                Write-Verbose "Last month, incrementing the year: $Year"
+                $Year -= 1
+                $MonthNum = 12
+            }
+            $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
+            Write-Verbose "Found: $DateResult"
+        }
+        $DayTitle = 'Previous ' + $Day + ' ' + $DayOfWeek
+        Write-OutputObject -NameField $DayTitle -DateField $DateResult
+    }
+    elseif ($Friday13th) {
         $DayTitle = 'Friday 13th'
         if ($Next -eq $true) {
             $Year += 1
+        } elseif ($Previous -eq $true) {
+            $Year -= 1
         }
         foreach ($iMonth in (1..12)) {
             Write-Verbose "Looking fo Friday 13th in $($Months[$iMonth-1])"
