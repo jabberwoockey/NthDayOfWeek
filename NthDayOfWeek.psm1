@@ -83,6 +83,7 @@ Get-Date
     [Alias('gndw')]
     param (
         [Parameter(Position=0,ParameterSetName='Base')]
+        [Parameter(Position=0,ParameterSetName='BaseMonth')]
         [Parameter(Position=0,ParameterSetName='BaseNext')]
         [Parameter(Position=0,ParameterSetName='BasePrev')]
         [ArgumentCompleter({'First','Second','Third','Fourth',
@@ -91,19 +92,24 @@ Get-Date
                             'Propreantepenultimate'})]
         [string]$Day = 'Second',
         [Parameter(Position=1,ParameterSetName='Base')]
+        [Parameter(Position=1,ParameterSetName='BaseMonth')]
         [Parameter(Position=1,ParameterSetName='BaseNext')]
         [Parameter(Position=1,ParameterSetName='BasePrev')]
         [ArgumentCompleter({'Monday','Tuesday','Wednesday','Thursday',
                             'Friday','Saturday','Sunday'})]
         [string]$DayOfWeek = 'Tuesday',
-        [Parameter(Position=2,ParameterSetName='Base')]
+        [Parameter(Mandatory=$true,Position=2,ParameterSetName='BaseMonth')]
         [ArgumentCompleter({'January','February','March','April',
                             'May','June','July','August','September',
                             'October','November','December'})]
         [string]$Month = (Get-Date).Month,
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13th')]
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13thNext')]
+        [Parameter(Mandatory=$true,ParameterSetName='Friday13thPrev')]
+        [switch]$Friday13th,
         [Parameter(Position=3,ParameterSetName='Base')]
-        [Parameter(Position=1,ParameterSetName='Friday13th')]
-        [ValidatePattern('^[0-9]{4}$')]
+        [Parameter(Position=3,ParameterSetName='BaseMonth')]
+        [Parameter(ParameterSetName='Friday13th')]
         [int]$Year = (Get-Date).Year,
         [Parameter(ParameterSetName='Base')]
         [Parameter(Mandatory=$true,ParameterSetName='BaseNext')]
@@ -112,11 +118,7 @@ Get-Date
         [Parameter(ParameterSetName='Base')]
         [Parameter(Mandatory=$true,ParameterSetName='BasePrev')]
         [Parameter(Mandatory=$true,ParameterSetName='Friday13thPrev')]
-        [switch]$Previous,
-        [Parameter(Mandatory=$true,ParameterSetName='Friday13th')]
-        [Parameter(ParameterSetName='Friday13thNext')]
-        [Parameter(ParameterSetName='Friday13thPrev')]
-        [switch]$Friday13th
+        [switch]$Previous
     )
 
     function Get-Day {
@@ -193,6 +195,13 @@ Get-Date
             $DaysAfterDate = `
                 (((Get-Date).Date).Subtract($(Get-Date $DateField))).Days
         }
+        if ($DateField -match "^[0-9].+") {
+            $DayOfYear = Get-Date $DateField -UFormat '%j'
+            $WeekOfYear = Get-Date $DateField -UFormat '%V'    
+        } else {
+            $DayOfYear = ''
+            $WeekOfYear = ''
+        }
         $obj = [PSCustomObject]@{
             $Props[0] = $NameField
             $Props[1] = $DateField
@@ -200,6 +209,8 @@ Get-Date
             $Props[3] = $DaysUntilEndOfMonth
             $Props[4] = $DaysUntilDate
             $Props[5] = $DaysAfterDate
+            $Props[6] = $DayOfYear
+            $Props[7] = $WeekOfYear
         }
         Write-Verbose 'Writing output'
         Write-Output $obj
@@ -214,10 +225,10 @@ Get-Date
             'May','June','July','August','September',
             'October','November','December')
     $Props = @('DayOfWeek','Date','DaysInMonth','DaysUntilEndOfMonth',
-            'DaysUntilDate','DaysAfterDate')
+            'DaysUntilDate','DaysAfterDate','DayOfYear','WeekOfYear')
 
-    Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
     Write-Verbose 'Check default behavior'
+    Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
     if (-not $PSBoundParameters.ContainsKey('Day') -and
             -not $PSBoundParameters.ContainsKey('DayOfWeek') -and
             -not $PSBoundParameters.ContainsKey('Month') -and
@@ -226,12 +237,6 @@ Get-Date
         $PSBoundParameters.Add('Day', $Day)
         $PSBoundParameters.Add('DayOfWeek', $DayOfWeek)
         $PSBoundParameters.Add('Year', $Year)
-        if ($PSBoundParameters.ContainsKey('Next')) {
-            $Year = ((Get-Date).Year + 1)
-        }
-        if ($PSBoundParameters.ContainsKey('Previous')) {
-            $Year = ((Get-Date).Year - 1)
-        }
         Write-Verbose 'The list for the current year was chosen'
         Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
         Write-Debug "Day: $Day; DayOfWeek: $DayOfWeek; Year: $Year"
@@ -304,6 +309,7 @@ Get-Date
     Write-Debug "DayOfWeek: $DayOfWeek"
 
     Write-Verbose 'Check the month'
+    Write-Debug "Month: $Month"
     switch -Regex ($Month) {
         '^(j(a|an|anu|anua|anuar|anuary)?|1)$' {
             $MonthNum = 1; $Month = $Months[0]}
@@ -329,7 +335,7 @@ Get-Date
             $MonthNum = 11; $Month = $Months[10]}
         '^(d(e|ec|ece|ecem|ecemb|ecembe|ecember)?|12)$' {
             $MonthNum = 12; $Month = $Months[11]}
-        '^[0-9]{4}$' {
+        '^([1][3-9]|[2-9][0-9]|[0-9]{3,4})$' {
             $PSBoundParameters.Add('Year', '')
             $Year = $Month
             # Out-Null to remove verbose output of remove
@@ -341,6 +347,13 @@ Get-Date
                 -Message 'Wrong or ambiguous value for month or year.'}
     }
     Write-Debug "MonthNum: $MonthNum; Month: $Month"
+
+    Write-Verbose 'Check the year'
+    Write-Debug "Year: $Year"
+    if ($Year -le 0 -or $Year -ge 9998) {
+        Write-Error -ErrorAction Stop `
+            -Message 'Wrong or ambiguous value for year.'
+    }
 
     Write-Verbose 'Start calculation'
     if ($Next -eq $true -and
@@ -413,14 +426,24 @@ Get-Date
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
+        if ($PSBoundParameters.ContainsKey('Next' -or
+                $PSBoundParameters.ContainsKey('Previous'))) {
+            Write-Error -ErrorAction Stop -Message `
+                "Next/Previous switches are useless here."            
+        }
         $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
-            + $Months[$MonthNum - 1] + ' ' + $Year
+        + $Months[$MonthNum - 1] + ' ' + $Year
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
-            ($PSBoundParameters.ContainsKey('Year'))) {
+    ($PSBoundParameters.ContainsKey('Year'))) {
         Write-Verbose "Calculating for year $Year"
+        if ($PSBoundParameters.ContainsKey('Next')) {
+            $Year += 1
+        } elseif ($PSBoundParameters.ContainsKey('Previous')) {
+            $Year -= 1
+        }
         foreach ($iMonth in (1..12)) {
             $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $iMonth
             $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
