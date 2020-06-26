@@ -29,9 +29,12 @@ without parameters:
 
 - `Get-NthDayOfWeek`
 
-Or with the switch `-Next` for the tuesdays of the next year:
+Or with the switch `-Next`/`-Previous` for the tuesdays of the next/previous
+year:
 
 - `gndw -Next` 
+
+- `gndw -Previous`
 
 To get second tuesdays (Patch Tuesdays) of a specific month of the current year
 or a specific year run any one of the following commands:
