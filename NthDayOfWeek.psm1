@@ -121,20 +121,24 @@ Get-Date
         [switch]$Previous
     )
 
+    Set-StrictMode -Version 3.0
     function Get-Day {
         param (
             [int]$DayVar,
             [int]$MonthVar
         )
-        Write-Verbose "Calculating the $Day $DayOfWeek for $MonthVar/$Year"
+        Write-Verbose ('Calculating the {0} {1} for {2}/{3}' `
+            -f $Day, $DayOfWeek, $MonthVar, $Year)
         $LastDay = (Get-Date -Day 1 -Month $MonthVar `
             -Year $Year).AddMonths(1).AddDays(-1).Day
         [string]$DateValue = ''
         [int]$WeekCounter = 0
-        Write-Debug "LastDay: $LastDay; DayVar: $DayVar; MonthVar: $MonthVar"
+        Write-Debug ('LastDay: {0}; DayVar: {1}; MonthVar: {2}' `
+            -f $LastDay, $DayVar, $MonthVar)
         if ($DayVar -lt 0) {
             [int]$DayCounter = $LastDay + 1
-            Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
+            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+                -f $WeekCounter, $DayCounter)
             while ($WeekCounter -lt [Math]::abs($DayVar) -and
                     $DayCounter -ge 1) {
                 $DayCounter -= 1
@@ -145,12 +149,14 @@ Get-Date
                               -Year $Year).DayOfWeek -eq $DayOfWeek) {
                     $WeekCounter += 1
                 }
-                Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
+                Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+                    -f $WeekCounter, $DayCounter)
             }
         }
         else {
             [int]$DayCounter = 0
-            Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
+            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+            -f $WeekCounter, $DayCounter)
             while ($WeekCounter -lt $DayVar -and $DayCounter -le $LastDay) {
                 $DayCounter += 1
                 if ($DayCounter -gt $LastDay) {
@@ -160,15 +166,16 @@ Get-Date
                               -Year $Year).DayOfWeek -eq $DayOfWeek) {
                     $WeekCounter += 1
                 }
-                Write-Debug "WeekCounter: $WeekCounter; DayCounter: $DayCounter"
+                Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+                    -f $WeekCounter, $DayCounter)
             }
         }
         if ($DateValue -eq '') {
             $DateValue = (Get-Date -Day ($DayCounter) -Month $MonthVar `
                 -Year $Year).ToShortDateString()
         }
+        Write-Verbose ('Calculated date is {0}' -f $DateValue)
         return $DateValue, $LastDay
-        Write-Verbose "Calculated date is $DateValue"
     } # end of Get-Day function
 
     function Write-OutputObject {
@@ -177,27 +184,30 @@ Get-Date
             [string]$DateField
         )
         Write-Verbose 'Creating output object'
-        if ($DateField -match "^[0-9].+") {
+        if ($DateField -match '[0-9].+') {
             $DaysUntilEndOfMonth = $LastDay - (Get-Date $DateField).Day
 
         } else {
             $DaysUntilEndOfMonth = ''
 
         }
-        if ($DateField -match "^[0-9].+" -and
+        if ($DateField -match '^[0-9].+' -and
                 (Get-Date $DateField) -gt (Get-Date).Date) {
             $DaysUntilDate = `
                 (((Get-Date $DateField).Date).Subtract($(Get-Date))).Days
             $DaysAfterDate = ''
-        } elseif ($DateField -match "^[0-9].+" -and
+        } elseif ($DateField -match '^[0-9].+' -and
                 (Get-Date $DateField) -lt (Get-Date).Date) {
             $DaysUntilDate = ''
             $DaysAfterDate = `
                 (((Get-Date).Date).Subtract($(Get-Date $DateField))).Days
+        } else {
+            $DaysUntilDate = ''
+            $DaysAfterDate = ''
         }
-        if ($DateField -match "^[0-9].+") {
+        if ($DateField -match '^[0-9].+') {
             $DayOfYear = Get-Date $DateField -UFormat '%j'
-            $WeekOfYear = Get-Date $DateField -UFormat '%V'    
+            $WeekOfYear = Get-Date $DateField -UFormat '%V'
         } else {
             $DayOfYear = ''
             $WeekOfYear = ''
@@ -228,7 +238,7 @@ Get-Date
             'DaysUntilDate','DaysAfterDate','DayOfYear','WeekOfYear')
 
     Write-Verbose 'Check default behavior'
-    Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
+    Write-Debug ('Bound Parameters: {0}' -f $(($PSBoundParameters).keys))
     if (-not $PSBoundParameters.ContainsKey('Day') -and
             -not $PSBoundParameters.ContainsKey('DayOfWeek') -and
             -not $PSBoundParameters.ContainsKey('Month') -and
@@ -238,8 +248,9 @@ Get-Date
         $PSBoundParameters.Add('DayOfWeek', $DayOfWeek)
         $PSBoundParameters.Add('Year', $Year)
         Write-Verbose 'The list for the current year was chosen'
-        Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
-        Write-Debug "Day: $Day; DayOfWeek: $DayOfWeek; Year: $Year"
+        Write-Debug ('Bound Parameters: {0}' -f $(($PSBoundParameters).keys))
+        Write-Debug ('Day: {0}; DayOfWeek: {1}; Year: {2}' `
+            -f $Day, $DayOfWeek, $Year)
     }
 
     Write-Verbose 'Check the day'
@@ -271,14 +282,13 @@ Get-Date
             $Day = 'Second'
             $PSBoundParameters.Add('DayOfWeek', 'Tuesday')
             Write-Verbose 'The day arg was substituted by the year arg'
-            Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"
+            Write-Debug ('Bound Parameters: {0}' -f $(($PSBoundParameters).keys))
         }
         Default {
             Write-Error -ErrorAction Stop -Message `
             'Wrong or ambiguous value for the day.'}
     }
-    Write-Debug "DayNum: $DayNum; Day: $Day"
-
+    Write-Debug ('DayNum: {0}; Day: {1}' -f $DayNum, $Day)
     Write-Verbose 'Check amount of parameters'
     if ($PSBoundParameters.ContainsKey('Day') -and
         (-not $PSBoundParameters.ContainsKey('DayOfWeek'))) {
@@ -306,10 +316,10 @@ Get-Date
             Write-Error -ErrorAction Stop `
                 -Message 'Wrong or ambiguous value for the day of the week.'}
     }
-    Write-Debug "DayOfWeek: $DayOfWeek"
+    Write-Debug ('DayOfWeek: {0}' -f $DayOfWeek)
 
     Write-Verbose 'Check the month'
-    Write-Debug "Month: $Month"
+    Write-Debug ('Month: {0}' -f $Month)
     switch -Regex ($Month) {
         '^(j(a|an|anu|anua|anuar|anuary)?|1)$' {
             $MonthNum = 1; $Month = $Months[0]}
@@ -338,18 +348,21 @@ Get-Date
         '^([1][3-9]|[2-9][0-9]|[0-9]{3,4})$' {
             $PSBoundParameters.Add('Year', '')
             $Year = $Month
+            $MonthNum = ''
+            $Month = ''
             # Out-Null to remove verbose output of remove
             $PSBoundParameters.Remove('Month') | Out-Null
             Write-Verbose 'The month arg was substituted by the year arg'
-            Write-Debug "Bound Parameters: $(($PSBoundParameters).keys)"}
+            Write-Debug ('Bound Parameters: {0}' -f $(($PSBoundParameters).keys))
+        }
         Default {
             Write-Error -ErrorAction Stop `
-                -Message 'Wrong or ambiguous value for month or year.'}
-    }
-    Write-Debug "MonthNum: $MonthNum; Month: $Month"
+            -Message 'Wrong or ambiguous value for month or year.'}
+        }
+    Write-Debug ('MonthNum: {0}; Month: {1}' -f $MonthNum, $Month)
 
     Write-Verbose 'Check the year'
-    Write-Debug "Year: $Year"
+    Write-Debug ('Year: {0}' -f $Year)
     if ($Year -le 0 -or $Year -ge 9998) {
         Write-Error -ErrorAction Stop `
             -Message 'Wrong or ambiguous value for year.'
@@ -361,20 +374,21 @@ Get-Date
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year'))) {
-        Write-Verbose "Looking for the next $Day $DayOfWeek"
+        Write-Verbose ('Looking for the next {0} {1}' -f $Day, $DayOfWeek)
         $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
-        Write-Verbose "$DateResult in $($Months[$MonthNum-1])"
+        Write-Verbose ('{0} in {1}' -f $DateResult, $Months[$MonthNum-1])
         while ($DateResult -match '^No.+$' -or
                 (Get-Date $DateResult) -le (Get-Date).Date) {
             $MonthNum += 1
-            Write-Verbose "Looking for another one in $($Months[$MonthNum-1])"
+            Write-Verbose ('Looking for another one in {0}' `
+                -f $Months[$MonthNum-1])
             if ($MonthNum -ge 13) {
-                Write-Verbose "Last month, incrementing the year: $Year"
+                Write-Verbose ('Last month, incrementing the year: {0}' -f $Year)
                 $Year += 1
                 $MonthNum = 1
             }
             $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
-            Write-Verbose "Found: $DateResult"
+            Write-Verbose ('Found: {0}' -f $DateResult)
         }
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
@@ -384,20 +398,21 @@ Get-Date
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year'))) {
-        Write-Verbose "Looking for the previous $Day $DayOfWeek"
+        Write-Verbose ('Looking for the previous {0} {1}' -f $Day, $DayOfWeek)
         $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
-        Write-Verbose "$DateResult in $($Months[$MonthNum-1])"
+        Write-Verbose ('{0} in {1}' -f $DateResult, $Months[$MonthNum-1])
         while ($DateResult -match '^No.+$' -or
                 (Get-Date $DateResult) -ge (Get-Date).Date) {
             $MonthNum -= 1
-            Write-Verbose "Looking for another one in $($Months[$MonthNum-1])"
+            Write-Verbose ('Looking for another one in {0}' `
+                -f $Months[$MonthNum-1])
             if ($MonthNum -le 0) {
-                Write-Verbose "Last month, incrementing the year: $Year"
+                Write-Verbose ('Last month, incrementing year: {0}' -f $Year)
                 $Year -= 1
                 $MonthNum = 12
             }
             $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
-            Write-Verbose "Found: $DateResult"
+            Write-Verbose ('Found: {0}' -f $DateResult)
         }
         $DayTitle = 'Previous ' + $Day + ' ' + $DayOfWeek
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
@@ -410,7 +425,8 @@ Get-Date
             $Year -= 1
         }
         foreach ($iMonth in (1..12)) {
-            Write-Verbose "Looking fo Friday 13th in $($Months[$iMonth-1])"
+            Write-Verbose ('Looking for Friday 13th in {0}' `
+                -f $Months[$iMonth-1])
             $LastDay = (Get-Date -Day 1 -Month $iMonth `
                 -Year $Year).AddMonths(1).AddDays(-1).Day
             if ((Get-Date -Day 13 -Month $iMonth -Year $Year).DayOfWeek `
@@ -426,11 +442,6 @@ Get-Date
             $PSBoundParameters.ContainsKey('DayOfWeek') -and
             (-not $PSBoundParameters.ContainsKey('Month')) -and
             (-not $PSBoundParameters.ContainsKey('Year')))) {
-        if ($PSBoundParameters.ContainsKey('Next' -or
-                $PSBoundParameters.ContainsKey('Previous'))) {
-            Write-Error -ErrorAction Stop -Message `
-                "Next/Previous switches are useless here."            
-        }
         $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
         + $Months[$MonthNum - 1] + ' ' + $Year
@@ -438,7 +449,7 @@ Get-Date
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
     ($PSBoundParameters.ContainsKey('Year'))) {
-        Write-Verbose "Calculating for year $Year"
+        Write-Verbose ('Calculating for year {0}' -f $Year)
         if ($PSBoundParameters.ContainsKey('Next')) {
             $Year += 1
         } elseif ($PSBoundParameters.ContainsKey('Previous')) {
@@ -451,4 +462,4 @@ Get-Date
             Write-OutputObject -NameField $DayTitle -DateField $DateResult
         }
     }
-}
+} # end of Get-NthDayOfWeek

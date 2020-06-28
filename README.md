@@ -9,12 +9,10 @@ By default, without parameters, the function returns second tuesdays
 or a list of days of the week for any year.
 
 To install clone or download repository, copy the directory into your user
-module folder (`$HOME\Documents\WindowsPowerShell\Modules\`), and then import
-the module, or run the command in your Powershell console:
+module folder (`$HOME\Documents\WindowsPowerShell\Modules\`), or run
+the command in your Powershell console:
 
 - `git clone https://github.com/jabberwoockey/NthDayOfWeek (Join-Path -Path $env:PSModulePath.Split(';')[0] -ChildPath \NthDayOfWeek)`
-
-- `Import-Module NthDayOfWeek`
 
 ---
 
