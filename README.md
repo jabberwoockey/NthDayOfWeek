@@ -92,6 +92,10 @@ month starting from tomorrow/yesterday, use `-Next`/`-Previous` switch:
 
 - `gndw 2 2 -prev`
 
+To get audio output run:
+
+- `Get-NthDayOfWeek 2 2 10 -Speak`
+
 To get all properties of the output object run `Get-NthDayOfWeek | Format-List *`
 
 Do not forget to use Tab to autocomplete arguments: `get-nth` > 'Tab' >

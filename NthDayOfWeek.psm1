@@ -29,6 +29,9 @@ with a Day/DayOfWeek pair or with a Year.
 .PARAMETER Friday13th
 A switch to search Friday 13th in the current, next/previous (with an
 according switch), or any other specified year.
+.PARAMETER Speak
+A switch that enables access to the functionality of an installed speech
+synthesis (text-to-speech) engine.
 .INPUTS
 Not implemented yet.
 .OUTPUTS
@@ -118,113 +121,18 @@ Get-Date
         [Parameter(ParameterSetName='Base')]
         [Parameter(Mandatory=$true,ParameterSetName='BasePrev')]
         [Parameter(Mandatory=$true,ParameterSetName='Friday13thPrev')]
-        [switch]$Previous
+        [switch]$Previous,
+        [Parameter(ParameterSetName='Base')]
+        [Parameter(ParameterSetName='BasePrev')]
+        [Parameter(ParameterSetName='BaseNext')]
+        [Parameter(ParameterSetName='BaseMonth')]
+        [Parameter(ParameterSetName='Friday13th')]
+        [Parameter(ParameterSetName='Friday13thPrev')]
+        [Parameter(ParameterSetName='Friday13thNext')]
+        [switch]$Speak
     )
 
     Set-StrictMode -Version 3.0
-    function Get-Day {
-        param (
-            [int]$DayVar,
-            [int]$MonthVar
-        )
-        Write-Verbose ('Calculating the {0} {1} for {2}/{3}' `
-            -f $Day, $DayOfWeek, $MonthVar, $Year)
-        $LastDay = (Get-Date -Day 1 -Month $MonthVar `
-            -Year $Year).AddMonths(1).AddDays(-1).Day
-        [string]$DateValue = ''
-        [int]$WeekCounter = 0
-        Write-Debug ('LastDay: {0}; DayVar: {1}; MonthVar: {2}' `
-            -f $LastDay, $DayVar, $MonthVar)
-        if ($DayVar -lt 0) {
-            [int]$DayCounter = $LastDay + 1
-            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
-                -f $WeekCounter, $DayCounter)
-            while ($WeekCounter -lt [Math]::abs($DayVar) -and
-                    $DayCounter -ge 1) {
-                $DayCounter -= 1
-                if ($DayCounter -lt 1) {
-                    $DateValue = 'No such a day'
-                }
-                elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
-                              -Year $Year).DayOfWeek -eq $DayOfWeek) {
-                    $WeekCounter += 1
-                }
-                Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
-                    -f $WeekCounter, $DayCounter)
-            }
-        }
-        else {
-            [int]$DayCounter = 0
-            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
-            -f $WeekCounter, $DayCounter)
-            while ($WeekCounter -lt $DayVar -and $DayCounter -le $LastDay) {
-                $DayCounter += 1
-                if ($DayCounter -gt $LastDay) {
-                    $DateValue = 'No such a day'
-                }
-                elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
-                              -Year $Year).DayOfWeek -eq $DayOfWeek) {
-                    $WeekCounter += 1
-                }
-                Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
-                    -f $WeekCounter, $DayCounter)
-            }
-        }
-        if ($DateValue -eq '') {
-            $DateValue = (Get-Date -Day ($DayCounter) -Month $MonthVar `
-                -Year $Year).ToShortDateString()
-        }
-        Write-Verbose ('Calculated date is {0}' -f $DateValue)
-        return $DateValue, $LastDay
-    } # end of Get-Day function
-
-    function Write-OutputObject {
-        param (
-            [string]$NameField,
-            [string]$DateField
-        )
-        Write-Verbose 'Creating output object'
-        if ($DateField -match '[0-9].+') {
-            $DaysUntilEndOfMonth = $LastDay - (Get-Date $DateField).Day
-
-        } else {
-            $DaysUntilEndOfMonth = ''
-
-        }
-        if ($DateField -match '^[0-9].+' -and
-                (Get-Date $DateField) -gt (Get-Date).Date) {
-            $DaysUntilDate = `
-                (((Get-Date $DateField).Date).Subtract($(Get-Date))).Days
-            $DaysAfterDate = ''
-        } elseif ($DateField -match '^[0-9].+' -and
-                (Get-Date $DateField) -lt (Get-Date).Date) {
-            $DaysUntilDate = ''
-            $DaysAfterDate = `
-                (((Get-Date).Date).Subtract($(Get-Date $DateField))).Days
-        } else {
-            $DaysUntilDate = ''
-            $DaysAfterDate = ''
-        }
-        if ($DateField -match '^[0-9].+') {
-            $DayOfYear = Get-Date $DateField -UFormat '%j'
-            $WeekOfYear = Get-Date $DateField -UFormat '%V'
-        } else {
-            $DayOfYear = ''
-            $WeekOfYear = ''
-        }
-        $obj = [PSCustomObject]@{
-            $Props[0] = $NameField
-            $Props[1] = $DateField
-            $Props[2] = $LastDay
-            $Props[3] = $DaysUntilEndOfMonth
-            $Props[4] = $DaysUntilDate
-            $Props[5] = $DaysAfterDate
-            $Props[6] = $DayOfYear
-            $Props[7] = $WeekOfYear
-        }
-        Write-Verbose 'Writing output'
-        Write-Output $obj
-    } # end of Write-OutputObject function
 
     $Days = @('First','Second','Third','Fourth',
             'Fifth','Last','Second to last','Third to last',
@@ -234,8 +142,6 @@ Get-Date
     $Months = @('January','February','March','April',
             'May','June','July','August','September',
             'October','November','December')
-    $Props = @('DayOfWeek','Date','DaysInMonth','DaysUntilEndOfMonth',
-            'DaysUntilDate','DaysAfterDate','DayOfYear','WeekOfYear')
 
     Write-Verbose 'Check default behavior'
     Write-Debug ('Bound Parameters: {0}' -f $(($PSBoundParameters).keys))
@@ -391,6 +297,9 @@ Get-Date
             Write-Verbose ('Found: {0}' -f $DateResult)
         }
         $DayTitle = 'Next ' + $Day + ' ' + $DayOfWeek
+        if ($Speak) {
+            $DateResult | Out-Voice -Asynchronous
+        }
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ($Previous -eq $true -and
@@ -415,6 +324,9 @@ Get-Date
             Write-Verbose ('Found: {0}' -f $DateResult)
         }
         $DayTitle = 'Previous ' + $Day + ' ' + $DayOfWeek
+        if ($Speak) {
+            $DateResult | Out-Voice -Asynchronous
+        }
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ($Friday13th) {
@@ -433,6 +345,9 @@ Get-Date
                     -eq 'Friday') {
                 $DateResult = (Get-Date -Day 13 -Month $iMonth `
                     -Year $Year).ToShortDateString()
+                if ($Speak) {
+                    $DateResult | Out-Voice -Asynchronous
+                }
                 Write-OutputObject -NameField $DayTitle -DateField $DateResult
             }
         }
@@ -445,6 +360,9 @@ Get-Date
         $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $MonthNum
         $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
         + $Months[$MonthNum - 1] + ' ' + $Year
+        if ($Speak) {
+            $DateResult | Out-Voice -Asynchronous
+        }
         Write-OutputObject -NameField $DayTitle -DateField $DateResult
     }
     elseif ((-not $PSBoundParameters.ContainsKey('Month')) -and `
@@ -459,7 +377,141 @@ Get-Date
             $DateResult, $LastDay = Get-Day -DayVar $DayNum -MonthVar $iMonth
             $DayTitle = $Day + ' ' + $DayOfWeek + ' of ' `
                 + $Months[$iMonth - 1] + ' ' + $Year
+            if ($Speak) {
+                $DateResult | Out-Voice -Asynchronous
+            }
             Write-OutputObject -NameField $DayTitle -DateField $DateResult
         }
     }
 } # end of Get-NthDayOfWeek
+
+function Get-Day {
+    param (
+        [int]$DayVar,
+        [int]$MonthVar
+    )
+    Write-Verbose ('Calculating the {0} {1} for {2}/{3}' `
+        -f $Day, $DayOfWeek, $MonthVar, $Year)
+    $LastDay = (Get-Date -Day 1 -Month $MonthVar `
+        -Year $Year).AddMonths(1).AddDays(-1).Day
+    [string]$DateValue = ''
+    [int]$WeekCounter = 0
+    Write-Debug ('LastDay: {0}; DayVar: {1}; MonthVar: {2}' `
+        -f $LastDay, $DayVar, $MonthVar)
+    if ($DayVar -lt 0) {
+        [int]$DayCounter = $LastDay + 1
+        Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+            -f $WeekCounter, $DayCounter)
+        while ($WeekCounter -lt [Math]::abs($DayVar) -and
+                $DayCounter -ge 1) {
+            $DayCounter -= 1
+            if ($DayCounter -lt 1) {
+                $DateValue = 'No such a day'
+            }
+            elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
+                          -Year $Year).DayOfWeek -eq $DayOfWeek) {
+                $WeekCounter += 1
+            }
+            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+                -f $WeekCounter, $DayCounter)
+        }
+    }
+    else {
+        [int]$DayCounter = 0
+        Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+        -f $WeekCounter, $DayCounter)
+        while ($WeekCounter -lt $DayVar -and $DayCounter -le $LastDay) {
+            $DayCounter += 1
+            if ($DayCounter -gt $LastDay) {
+                $DateValue = 'No such a day'
+            }
+            elseif ((Get-Date -Day $DayCounter -Month $MonthVar `
+                          -Year $Year).DayOfWeek -eq $DayOfWeek) {
+                $WeekCounter += 1
+            }
+            Write-Debug ('WeekCounter: {0}; DayCounter: {1}' `
+                -f $WeekCounter, $DayCounter)
+        }
+    }
+    if ($DateValue -eq '') {
+        $DateValue = (Get-Date -Day ($DayCounter) -Month $MonthVar `
+            -Year $Year).ToShortDateString()
+    }
+    Write-Verbose ('Calculated date is {0}' -f $DateValue)
+    return $DateValue, $LastDay
+} # end of Get-Day function
+
+function Write-OutputObject {
+    param (
+        [string]$NameField,
+        [string]$DateField
+    )
+    $Props = @('DayOfWeek','Date','DaysInMonth','DaysUntilEndOfMonth',
+    'DaysUntilDate','DaysAfterDate','DayOfYear','WeekOfYear')
+    
+    Write-Verbose 'Creating output object'
+    if ($DateField -match '[0-9].+') {
+        $DaysUntilEndOfMonth = $LastDay - (Get-Date $DateField).Day
+
+    } else {
+        $DaysUntilEndOfMonth = ''
+
+    }
+    if ($DateField -match '^[0-9].+' -and
+            (Get-Date $DateField) -gt (Get-Date).Date) {
+        $DaysUntilDate = `
+            (((Get-Date $DateField).Date).Subtract($(Get-Date))).Days
+        $DaysAfterDate = ''
+    } elseif ($DateField -match '^[0-9].+' -and
+            (Get-Date $DateField) -lt (Get-Date).Date) {
+        $DaysUntilDate = ''
+        $DaysAfterDate = `
+            (((Get-Date).Date).Subtract($(Get-Date $DateField))).Days
+    } else {
+        $DaysUntilDate = ''
+        $DaysAfterDate = ''
+    }
+    if ($DateField -match '^[0-9].+') {
+        $DayOfYear = Get-Date $DateField -UFormat '%j'
+        $WeekOfYear = Get-Date $DateField -UFormat '%V'
+    } else {
+        $DayOfYear = ''
+        $WeekOfYear = ''
+    }
+    $obj = [PSCustomObject]@{
+        $Props[0] = $NameField
+        $Props[1] = $DateField
+        $Props[2] = $LastDay
+        $Props[3] = $DaysUntilEndOfMonth
+        $Props[4] = $DaysUntilDate
+        $Props[5] = $DaysAfterDate
+        $Props[6] = $DayOfYear
+        $Props[7] = $WeekOfYear
+    }
+    Write-Verbose 'Writing output'
+    Write-Output $obj
+} # end of Write-OutputObject function
+
+function Out-Voice {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$Text,
+        [switch]$Asynchronous
+    )
+    Begin {
+        Add-Type -AssemblyName System.Speech
+        $Voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
+        $Voice.speak($Text)
+    }
+    Process {
+        foreach ($Phrase in $Text) {
+            if ($Asynchronous) {
+                $Voice.SpeakAsync($Phrase) | Out-Null
+            } else {
+                $Voice.speak($Phrase)
+            }
+        }
+    }
+    End {}
+} # end of Out-Voice function
